@@ -217,13 +217,18 @@ const main = async () => {
       batchCalls.push(setBaseImageUriTx);
     }
 
-    // Execute batch calls for metadata and other actions
-    collectionMetadata.forEach(async (metadataParams) => {
-      const registerAndSetMetadataTx =
-        await nftCollection.metadata.register(metadataParams);
-      batchCalls.push(registerAndSetMetadataTx);
+    // Create register metadata transactions and add to the batchCalls array.
+    const registerMetadataPromises = collectionMetadata.map(
+      (metadataParams) => {
+        return nftCollection.metadata.register(metadataParams);
+      },
+    );
+    const registerMetadataTxs = await Promise.all(registerMetadataPromises);
+    registerMetadataTxs.forEach((tx) => {
+      batchCalls.push(tx);
     });
 
+    // Execute batch calls for metadata and other actions
     if (batchCalls.length) {
       const batchTransaction = await sdk.createTransactionBatch({
         transactions: batchCalls,
