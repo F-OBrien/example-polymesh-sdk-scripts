@@ -1,20 +1,17 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
 import { BigNumber, Polymesh } from '@polymeshassociation/polymesh-sdk';
 import {
-  CollectionKey,
-  Nft,
-  NftCollection,
-  NftMetadataInput,
+  Identity,
+  Instruction,
   UnsubCallback,
 } from '@polymeshassociation/polymesh-sdk/types';
 import fs from 'fs';
 import { handleTxStatusChange } from './helpers';
 
-interface NftMetadataValue {
-  name: string;
-  value: string;
+interface DistributionInfo {
+  identity: string;
+  nftIds: BigNumber[];
 }
-type NftToIssue = NftMetadataValue[];
 
 // Define the mnemonic and node URL
 const MNEMONIC = '//Alice';
@@ -24,81 +21,39 @@ const NODE_URL = 'ws://localhost:9944/';
 const TICKER = 'NFT0001';
 
 // Set the location of the .csv file containing the NFT metadata information
-const CSV_FILE_PATH = 'sample-metadata-values.csv';
+const CSV_FILE_PATH = 'sample-distributions.csv';
+
+// Set the venue ID for the distributions
+const VENUE_ID = 1;
 
 // Set the maximum number of NFT's to create in a single batch transaction
 const MAX_BATCH_SIZE = 100;
 
-async function parseCsv(csvFilePath: string): Promise<NftToIssue[]> {
+async function parseCsv(csvFilePath: string): Promise<DistributionInfo[]> {
   try {
     const fileContent: string = await fs.promises.readFile(
       csvFilePath,
       'utf-8',
     );
     const rows: string[] = fileContent.trim().split('\n');
-    const headers: string[] = rows
-      .shift()!
-      .trim()
-      .split(',')
-      .map((header) => header.trim());
 
-    const nftsToIssue: NftToIssue[] = rows.map((row) => {
+    const distributions = rows.map((row) => {
       const values: string[] = row
         .trim()
         .split(',')
         .map((value) => value.trim());
-      return headers.map((name, index) => ({ name, value: values[index] }));
+
+      const identity = values[0];
+
+      const nftIds = values.slice(1).map((nftId) => new BigNumber(nftId));
+
+      return { identity, nftIds };
     });
 
-    return nftsToIssue;
+    return distributions;
   } catch (error) {
     throw new Error(`Error parsing CSV file: ${(error as Error).message}`);
   }
-}
-
-function validateCollectionKeyValues(
-  collectionKeys: CollectionKey[],
-  nftMetadataValues: { name: string; value: string }[],
-) {
-  const RequiredKeyNames = collectionKeys.map((key) => key.name);
-
-  // Check if all required keys are included
-  const missingKeys = RequiredKeyNames.filter(
-    (name) => !nftMetadataValues.some((kv) => kv.name === name),
-  );
-
-  if (missingKeys.length > 0) {
-    throw new Error(
-      `Missing values for required collection keys: ${missingKeys.join(', ')}`,
-    );
-  }
-
-  // Check if there are extra keys included
-  const extraKeys = nftMetadataValues.filter(
-    (kv) => !RequiredKeyNames.includes(kv.name),
-  );
-  if (extraKeys.length > 0) {
-    throw new Error(
-      `These keys are not part of this collection: ${extraKeys
-        .map((kv) => kv.name)
-        .join(', ')}`,
-    );
-  }
-}
-
-function prepareNftMetadata(
-  collectionKeys: CollectionKey[],
-  nftMetadataValues: { name: string; value: string }[],
-): NftMetadataInput[] {
-  validateCollectionKeyValues(collectionKeys, nftMetadataValues);
-
-  return collectionKeys.map(({ id, name, type }) => {
-    const keyValue = nftMetadataValues.find((kv) => kv.name === name);
-    if (!keyValue) {
-      throw new Error(`Value not found for collection key: ${name}`);
-    }
-    return { id, type, value: keyValue.value };
-  });
 }
 
 async function connectToPolymesh(): Promise<Polymesh> {
@@ -127,32 +82,48 @@ async function getSigningAccountNonce(sdk: Polymesh): Promise<BigNumber> {
   return nonce;
 }
 
-async function issueNftsInBatches(
+async function distributeNftsInBatches(
   sdk: Polymesh,
-  nftCollection: NftCollection,
-  preparedMetadata: NftMetadataInput[][],
+  senderIdentity: Identity,
+  ticker: string,
+  distributions: DistributionInfo[],
 ): Promise<void> {
   const unsubs: UnsubCallback[] = [];
 
   const currentNonce = await getSigningAccountNonce(sdk);
 
-  const runPromises: (Promise<Nft> | Promise<Nft[]>)[] = [];
-  const maxIterations = Math.ceil(preparedMetadata.length / MAX_BATCH_SIZE);
+  const venue = await sdk.settlements.getVenue({
+    id: new BigNumber(VENUE_ID),
+  });
+
+  const runPromises: (Promise<Instruction> | Promise<Instruction[]>)[] = [];
+  const maxIterations = Math.ceil(distributions.length / MAX_BATCH_SIZE);
   // Split NFT's into batches. We assign a nonce so transactions can run concurrently
   for (let i = 0; i < maxIterations; i += 1) {
-    const nftBatch = preparedMetadata.slice(
+    const distributionBatch = distributions.slice(
       i * MAX_BATCH_SIZE,
       i * MAX_BATCH_SIZE + MAX_BATCH_SIZE,
     );
 
-    const issueTransactionPromises = nftBatch.map((nftMetadata) => {
-      return nftCollection.issue(
-        { metadata: nftMetadata },
-        { nonce: currentNonce.plus(i) },
-      );
-    });
+    const distributeTransactionPromises = distributionBatch.map(
+      ({ identity, nftIds }) => {
+        return venue.addInstruction(
+          {
+            legs: [
+              {
+                from: senderIdentity,
+                to: identity,
+                asset: ticker,
+                nfts: nftIds,
+              },
+            ],
+          },
+          { nonce: currentNonce.plus(i) },
+        );
+      },
+    );
     // eslint-disable-next-line no-await-in-loop
-    const transactions = await Promise.all(issueTransactionPromises);
+    const transactions = await Promise.all(distributeTransactionPromises);
     if (transactions.length === 1) {
       const unsub = transactions[0].onStatusChange(handleTxStatusChange);
       unsubs.push(unsub);
@@ -177,8 +148,8 @@ async function issueNftsInBatches(
 
 const main = async () => {
   try {
-    console.log(`Reading NFT metadata from ${CSV_FILE_PATH}`);
-    const nftsToIssue: NftToIssue[] = await parseCsv(CSV_FILE_PATH);
+    console.log(`Reading NFT distribution information from ${CSV_FILE_PATH}`);
+    const distributions: DistributionInfo[] = await parseCsv(CSV_FILE_PATH);
 
     console.log('Connecting to Polymesh');
     const sdk = await connectToPolymesh();
@@ -187,16 +158,12 @@ const main = async () => {
     const networkProps = await sdk.network.getNetworkProperties();
     console.log('Successfully connected to', networkProps.name);
 
-    const nftCollection = await sdk.assets.getNftCollection({ ticker: TICKER });
+    const senderIdentity = await sdk.getSigningIdentity();
+    if (!senderIdentity) {
+      throw new Error('Sender identity not found.');
+    }
 
-    const collectionKeys = await nftCollection.collectionKeys();
-
-    const preparedMetadata = nftsToIssue.map((nftPropertyValues) => {
-      const nftMetadata = prepareNftMetadata(collectionKeys, nftPropertyValues);
-      return nftMetadata;
-    });
-
-    await issueNftsInBatches(sdk, nftCollection, preparedMetadata);
+    await distributeNftsInBatches(sdk, senderIdentity, TICKER, distributions);
 
     // Disconnect from Polymesh
     console.log('\nDisconnecting');

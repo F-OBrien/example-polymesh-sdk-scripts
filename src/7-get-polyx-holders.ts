@@ -3,7 +3,7 @@ import { Polymesh } from '@polymeshassociation/polymesh-sdk';
 import { balanceToBigNumber } from '@polymeshassociation/polymesh-sdk/utils/conversion';
 import fs from 'fs';
 
-const nodeUrl = 'wss://mainnet-rpc.polymesh.network';
+const nodeUrl = 'ws://localhost:9944/';
 
 const main = async () => {
   try {
@@ -26,6 +26,10 @@ const main = async () => {
 
     const keyRecords =
       await sdk._polkadotApi.query.identity.keyRecords.entries();
+    // const apiAtInstance = await sdk._polkadotApi.at(
+    //   '0xbd08c6238dd2e04b5293866b31b6f2d6a5c982d597e8538d15a4356210750c83',
+    // );
+    // const keyRecords = await apiAtInstance.query.identity.keyRecords.entries();
 
     const keyToIdentityRecord: Record<string, string> = {};
 
