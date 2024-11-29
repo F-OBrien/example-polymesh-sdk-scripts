@@ -9,7 +9,7 @@ const scriptsToRun = [
   '3-create-asset.js',
   '4-create-stablecoin.js',
   '5-create-portfolio.js',
-  '6-create-venues.js',
+  '6-create-venue.js',
   '7-fund-demo-identities.js',
   '8-add-rules.js',
   '9-add-claims.js',
@@ -28,25 +28,25 @@ const runScriptsSequentially = (scripts: string[], index = 0): void => {
   console.log(`Running script: ${script}`);
 
   // Execute the script and capture stdout and stderr
-  const process = exec(`node ${scriptPath}`);
+  const childProcess = exec(`node ${scriptPath}`);
 
-  process.stdout?.on('data', (data) => {
+  childProcess.stdout?.on('data', (data) => {
     console.log(`[${script}] stdout: ${data}`);
   });
 
-  process.stderr?.on('data', (data) => {
+  childProcess.stderr?.on('data', (data) => {
     console.error(`[${script}] stderr: ${data}`);
   });
 
-  process.on('close', (code) => {
+  childProcess.on('close', (code) => {
     if (code !== 0) {
       console.error(`[${script}] exited with error code ${code}`);
+      process.exit(code); // Exit the main process if there's an error
     } else {
       console.log(`[${script}] completed successfully.`);
+      // Run the next script in the sequence
+      runScriptsSequentially(scriptsToRun, index + 1);
     }
-
-    // Run the next script in the sequence
-    runScriptsSequentially(scriptsToRun, index + 1);
   });
 };
 

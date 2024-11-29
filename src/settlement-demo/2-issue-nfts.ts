@@ -10,25 +10,22 @@ import {
 import fs from 'fs';
 import { parse } from 'csv-parse';
 import { handleTxStatusChange } from '../helpers';
+import { CSV_FILE_PATH, MAX_BATCH_SIZE } from './scriptInputs/nftInputs';
+import {
+  NODE_URL,
+  ISSUER_MNEMONIC,
+  ASSET_IDS_PATH,
+  NFT_COLLECTION_ASSET_KEY,
+} from './scriptInputs/common';
+
+// Load the asset IDs dynamically
+const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
 
 interface NftMetadataValue {
   name: string;
   value: string;
 }
 type NftToIssue = NftMetadataValue[];
-
-// Define the mnemonic and node URL
-const MNEMONIC = '//Alice';
-const NODE_URL = 'ws://localhost:9944/';
-
-// Ticker of collection NFT's will be issued from
-const TICKER = 'DC-NOTE-2024';
-
-// Set the location of the .csv file containing the NFT metadata information
-const CSV_FILE_PATH = './src/settlement-demo/nft_data.csv';
-
-// Set the maximum number of NFT's to create in a single batch transaction
-const MAX_BATCH_SIZE = 100;
 
 async function parseCsv(csvFilePath: string): Promise<NftToIssue[]> {
   return new Promise((resolve, reject) => {
@@ -114,7 +111,7 @@ function prepareNftMetadata(
 async function connectToPolymesh(): Promise<Polymesh> {
   // Create a local signing manager with one account
   const signingManager = await LocalSigningManager.create({
-    accounts: [{ mnemonic: MNEMONIC }],
+    accounts: [{ mnemonic: ISSUER_MNEMONIC }],
   });
 
   // Connect to the Polymesh blockchain using the SDK
@@ -187,6 +184,8 @@ async function issueNftsInBatches(
 
 const main = async () => {
   try {
+    const assetId = assetIds[NFT_COLLECTION_ASSET_KEY];
+
     console.log(`Reading NFT metadata from ${CSV_FILE_PATH}`);
     const nftsToIssue: NftToIssue[] = await parseCsv(CSV_FILE_PATH);
 
@@ -197,7 +196,9 @@ const main = async () => {
     const networkProps = await sdk.network.getNetworkProperties();
     console.log('Successfully connected to', networkProps.name);
 
-    const nftCollection = await sdk.assets.getNftCollection({ ticker: TICKER });
+    const nftCollection = await sdk.assets.getNftCollection({
+      assetId,
+    });
 
     const collectionKeys = await nftCollection.collectionKeys();
 
@@ -213,7 +214,7 @@ const main = async () => {
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };

@@ -1,29 +1,36 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
 import { Polymesh } from '@polymeshassociation/polymesh-sdk';
 import { ClaimType, ScopeType } from '@polymeshassociation/polymesh-sdk/types';
+import fs from 'fs';
 import { handleTxStatusChange } from '../helpers';
+import {
+  NODE_URL,
+  ISSUER_MNEMONIC,
+  USER1_MNEMONIC,
+  USER2_MNEMONIC,
+  ASSET_IDS_PATH,
+  FUNGIBLE_ASSET_KEY,
+} from './scriptInputs/common';
 
-// Define the mnemonic and node URL
-const ALICE = '//Alice//stash';
-const USER1 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//1';
-const USER2 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//2';
-const nodeUrl = 'ws://localhost:9944/';
+// Load the asset IDs dynamically
+const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
 
-const ASSET = 'DEMO-CORP';
 const main = async () => {
   try {
     // Create a local signing manager with one account
     const signingManager = await LocalSigningManager.create({
-      accounts: [{ mnemonic: ALICE }, { mnemonic: USER1 }, { mnemonic: USER2 }],
+      accounts: [
+        { mnemonic: ISSUER_MNEMONIC },
+        { mnemonic: USER1_MNEMONIC },
+        { mnemonic: USER2_MNEMONIC },
+      ],
     });
 
     console.log('Connecting to Polymesh');
 
     // Connect to the Polymesh blockchain using the SDK
     const sdk = await Polymesh.connect({
-      nodeUrl,
+      nodeUrl: NODE_URL,
       signingManager,
       polkadot: { noInitWarn: true },
     });
@@ -45,14 +52,20 @@ const main = async () => {
         {
           claim: {
             type: ClaimType.KnowYourCustomer,
-            scope: { type: ScopeType.Ticker, value: ASSET },
+            scope: {
+              type: ScopeType.Asset,
+              value: assetIds[FUNGIBLE_ASSET_KEY],
+            },
           },
           target: identityUser1,
         },
         {
           claim: {
             type: ClaimType.Accredited,
-            scope: { type: ScopeType.Ticker, value: ASSET },
+            scope: {
+              type: ScopeType.Asset,
+              value: assetIds[FUNGIBLE_ASSET_KEY],
+            },
           },
           target: identityUser1,
         },
@@ -72,7 +85,7 @@ const main = async () => {
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };

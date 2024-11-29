@@ -1,27 +1,42 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
 import { BigNumber, Polymesh } from '@polymeshassociation/polymesh-sdk';
+import fs from 'fs';
 import { handleTxStatusChange } from '../helpers';
+import {
+  AMOUNT_FUNGIBLE_ASSET,
+  AMOUNT_STABLECOIN_1,
+  AMOUNT_STABLECOIN_2,
+  NFT_ID,
+  NODE_URL,
+  ISSUER_MNEMONIC,
+  USER1_MNEMONIC,
+  USER2_MNEMONIC,
+  ASSET_IDS_PATH,
+  NFT_COLLECTION_ASSET_KEY,
+  STABLE_COIN_ASSET_KEY,
+  FUNGIBLE_ASSET_KEY,
+} from './scriptInputs/common';
+
+// Load the asset IDs dynamically
+const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
 
 // Define the mnemonic and node URL
-const ALICE = '//Alice//stash';
-const USER1 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//1';
-const USER2 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//2';
-const nodeUrl = 'ws://localhost:9944/';
-
 const main = async () => {
   try {
     // Create a local signing manager with one account
     const signingManager = await LocalSigningManager.create({
-      accounts: [{ mnemonic: ALICE }, { mnemonic: USER1 }, { mnemonic: USER2 }],
+      accounts: [
+        { mnemonic: ISSUER_MNEMONIC },
+        { mnemonic: USER1_MNEMONIC },
+        { mnemonic: USER2_MNEMONIC },
+      ],
     });
 
     console.log('Connecting to Polymesh');
 
     // Connect to the Polymesh blockchain using the SDK
     const sdk = await Polymesh.connect({
-      nodeUrl,
+      nodeUrl: NODE_URL,
       signingManager,
       polkadot: { noInitWarn: true },
     });
@@ -38,34 +53,30 @@ const main = async () => {
     const identityUser2 = await keys[2].getIdentity();
     if (!identityUser2) throw new Error('Identity not found for user 2');
 
-    const signerVenue = await signingIdentity.getVenues();
-    if (!signerVenue[0])
-      throw new Error('No settlement venue found please create one');
-
-    const settlementInstructionTx = await signerVenue[0].addInstruction({
+    const settlementInstructionTx = await sdk.settlements.addInstruction({
       legs: [
         {
-          amount: new BigNumber(25000),
-          asset: 'DEMO-CORP',
+          amount: AMOUNT_FUNGIBLE_ASSET,
+          asset: assetIds[FUNGIBLE_ASSET_KEY],
           from: signingIdentity,
           to: { identity: identityUser1, id: new BigNumber(0) },
         },
         {
-          amount: new BigNumber(10500000),
-          asset: 'DC-USD',
+          amount: AMOUNT_STABLECOIN_1,
+          asset: assetIds[STABLE_COIN_ASSET_KEY],
           from: signingIdentity,
           to: { identity: identityUser1, id: new BigNumber(1) },
         },
         {
-          amount: new BigNumber(125000),
-          asset: 'DC-USD',
+          amount: AMOUNT_STABLECOIN_2,
+          asset: assetIds[STABLE_COIN_ASSET_KEY],
           from: signingIdentity,
           to: { identity: identityUser2, id: new BigNumber(0) },
         },
         {
-          asset: 'DC-NOTE-2024',
+          asset: assetIds[NFT_COLLECTION_ASSET_KEY],
           from: signingIdentity,
-          nfts: [new BigNumber(3)],
+          nfts: [NFT_ID],
           to: { identity: identityUser2, id: new BigNumber(1) },
         },
       ],
@@ -119,7 +130,7 @@ const main = async () => {
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };

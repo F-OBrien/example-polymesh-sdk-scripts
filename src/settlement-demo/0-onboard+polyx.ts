@@ -1,18 +1,17 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
-import { BigNumber, Polymesh } from '@polymeshassociation/polymesh-sdk';
+import { Polymesh } from '@polymeshassociation/polymesh-sdk';
 import { GenericPolymeshTransaction } from '@polymeshassociation/polymesh-sdk/types';
 import { Identity } from '@polymeshassociation/polymesh-sdk/internal';
 import { handleTxStatusChange } from '../helpers';
-
-const MNEMONIC =
-  'bottom drive obey lake curtain smoke basket hold race lonely fit walk';
-const nodeUrl = 'ws://localhost:9944/';
-const derivationPath = '//Alice'; // Use your key's derivation path
-const USER1 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//1';
-const USER2 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//2';
-const polyxAmount = new BigNumber(10); // Amount of POLYX to transfer
+import {
+  NODE_URL,
+  CDD_PROVIDER_MNEMONIC,
+  USER1_MNEMONIC,
+  USER2_MNEMONIC,
+  KEYS_TO_ONBOARD,
+  POLYX_TOKENS_TO_TRANSFER,
+  ISSUER_MNEMONIC,
+} from './scriptInputs/common';
 
 // Helper function to check if an identity exists for a given address
 const doesIdentityExist = async (
@@ -58,7 +57,7 @@ const transferPolyxToUsers = async (
 ): Promise<GenericPolymeshTransaction<void, void>[]> => {
   const transferPromises = userPublicKeys.map(async (publicKey) => {
     const transferTx = await sdk.network.transferPolyx({
-      amount: polyxAmount,
+      amount: POLYX_TOKENS_TO_TRANSFER,
       to: publicKey,
       memo: undefined,
     });
@@ -75,30 +74,27 @@ const main = async () => {
     // Create local signing manager
     const signingManager = await LocalSigningManager.create({
       accounts: [
-        { mnemonic: MNEMONIC, derivationPath },
-        { mnemonic: USER1 },
-        { mnemonic: USER2 },
+        { mnemonic: CDD_PROVIDER_MNEMONIC || '//Alice' },
+        { mnemonic: ISSUER_MNEMONIC },
+        { mnemonic: USER1_MNEMONIC },
+        { mnemonic: USER2_MNEMONIC },
+        {
+          mnemonic:
+            'acquire island march famous glad zebra wasp cattle injury drill prefer deer//3',
+        },
       ],
     });
 
     console.log('Connecting to Polymesh...');
     const sdk = await Polymesh.connect({
-      nodeUrl,
+      nodeUrl: NODE_URL,
       signingManager,
       polkadot: { noInitWarn: true },
     });
     console.log('Connected to Polymesh 🎉');
-    const accs = await signingManager.getAccounts();
-    console.log(accs);
+    const signingAccountKeys = await signingManager.getAccounts();
 
-    const userPublicKeys = [
-      '5DnUDDX2BMdkoNRpkK9PeTuv9AnyqFukoao2pHYSdSEN2SYL',
-      '5FpeacP7GzPEohfndrg1RbbNoU6c5wd8W8oKVqw5NAVNX6tE',
-      '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-      '5CM75XcPiYtq53G3hqx2JB2A3CVUjwsaYJctHGb6anAqrL9r',
-      '5CPJ1rPmNAzycr99W8MEhLB3oJUcuFZFz6jccJu24ZqnETf5',
-      '5CS6CKKNPDvrRFtGLTo94hjZ1NuzgW8njxgkXrSrwspLz4mH',
-    ]; // Replace with actual public keys
+    const userPublicKeys = signingAccountKeys.concat(KEYS_TO_ONBOARD);
 
     // Stage 1: Register identities for users without an identity
     const identityTransactions = await registerIdentities(sdk, userPublicKeys);
@@ -136,7 +132,7 @@ const main = async () => {
     console.log('All transactions completed successfully!');
     await sdk.disconnect();
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };

@@ -1,35 +1,33 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
 import { Polymesh } from '@polymeshassociation/polymesh-sdk';
-import {
-  ClaimType,
-  ConditionTarget,
-  ConditionType,
-  CountryCode,
-  ScopeType,
-} from '@polymeshassociation/polymesh-sdk/types';
+import fs from 'fs';
 import { handleTxStatusChange } from '../helpers';
+import {
+  ISSUER_MNEMONIC,
+  NODE_URL,
+  ASSET_IDS_PATH,
+  FUNGIBLE_ASSET_KEY,
+} from './scriptInputs/common';
+import {
+  constructComplianceRules,
+  constructTrustedClaimIssuers,
+} from './scriptInputs/assetInputs';
 
-// Define the mnemonic and node URL
-const ALICE = '//Alice//stash';
-const USER1 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//1';
-const USER2 =
-  'acquire island march famous glad zebra wasp cattle injury drill prefer deer//2';
-const nodeUrl = 'ws://localhost:9944/';
+// Load the asset IDs dynamically
+const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
 
-const ASSET = 'DEMO-CORP';
 const main = async () => {
   try {
     // Create a local signing manager with one account
     const signingManager = await LocalSigningManager.create({
-      accounts: [{ mnemonic: ALICE }, { mnemonic: USER1 }, { mnemonic: USER2 }],
+      accounts: [{ mnemonic: ISSUER_MNEMONIC }],
     });
 
     console.log('Connecting to Polymesh');
 
     // Connect to the Polymesh blockchain using the SDK
     const sdk = await Polymesh.connect({
-      nodeUrl,
+      nodeUrl: NODE_URL,
       signingManager,
       polkadot: { noInitWarn: true },
     });
@@ -37,188 +35,33 @@ const main = async () => {
     // Retrieve network properties
     const networkProps = await sdk.network.getNetworkProperties();
     console.log('Successfully connected to', networkProps.name, '🎉');
-    const keys = await sdk.accountManagement.getSigningAccounts();
 
     const signingIdentity = await sdk.getSigningIdentity();
     if (!signingIdentity) throw new Error('No Signing Identity found');
-    const identityUser1 = await keys[1].getIdentity();
-    if (!identityUser1) throw new Error('Identity not found for user 1');
-    const identityUser2 = await keys[2].getIdentity();
-    if (!identityUser2) throw new Error('Identity not found for user 2');
 
-    const asset = await sdk.assets.getFungibleAsset({ ticker: ASSET });
-    // const addTrustedClaimIssuerTx =
-    //   await asset.compliance.trustedClaimIssuers.add({
-    //     claimIssuers: [
-    //       {
-    //         identity: signingIdentity,
-    //         trustedFor: [
-    //           ClaimType.KnowYourCustomer,
-    //           ClaimType.Accredited,
-    //           ClaimType.Affiliate,
-    //           ClaimType.Blocked,
-    //           ClaimType.BuyLockup,
-    //           ClaimType.Custom,
-    //           ClaimType.Exempted,
-    //           ClaimType.Jurisdiction,
-    //           ClaimType.SellLockup,
-    //         ],
-    //       },
-    //     ],
-    //   });
+    const asset = await sdk.assets.getFungibleAsset({
+      assetId: assetIds[FUNGIBLE_ASSET_KEY],
+    });
+
+    // Construct compliance rules using the helper function
+    const rules = constructComplianceRules(signingIdentity.did, asset.id);
+
+    // Construct trusted claim issuers using the helper function
+    const trustedClaimIssuers = constructTrustedClaimIssuers(
+      signingIdentity.did,
+    );
+
+    const addTrustedClaimIssuerTx =
+      await asset.compliance.trustedClaimIssuers.add({
+        claimIssuers: trustedClaimIssuers,
+      });
 
     const addRuleTx = await asset.compliance.requirements.set({
-      requirements: [
-        [
-          {
-            type: ConditionType.IsIdentity,
-            identity: signingIdentity,
-            target: ConditionTarget.Both,
-          },
-        ],
-        [
-          {
-            type: ConditionType.IsPresent,
-            claim: {
-              type: ClaimType.KnowYourCustomer,
-              scope: {
-                type: ScopeType.Ticker,
-                value: ASSET,
-              },
-            },
-            // trustedClaimIssuers: [
-            //   { identity: signingIdentity, trustedFor: null },
-            // ],
-            target: ConditionTarget.Both,
-          },
-          {
-            type: ConditionType.IsPresent,
-            claim: {
-              type: ClaimType.CustomerDueDiligence,
-              id: '0x',
-            },
-            // trustedClaimIssuers: [
-            //   { identity: signingIdentity, trustedFor: null },
-            // ],
-            target: ConditionTarget.Both,
-          },
-          // {
-          //   type: ConditionType.IsAbsent,
-          //   claim: {
-          //     type: ClaimType.BuyLockup,
-          //     scope: {
-          //       type: ScopeType.Identity,
-          //       value: signingIdentity.did,
-          //     },
-          //   },
-          //   // trustedClaimIssuers: [
-          //   //   { identity: signingIdentity, trustedFor: null },
-          //   // ],
-          //   target: ConditionTarget.Both,
-          // },
-          {
-            type: ConditionType.IsAbsent,
-            claim: {
-              type: ClaimType.CustomerDueDiligence,
-              id: '0x',
-            },
-            target: ConditionTarget.Both,
-          },
-        ],
-        // [
-        //   {
-        //     type: ConditionType.IsPresent,
-        //     claim: {
-        //       type: ClaimType.Jurisdiction,
-        //       code: CountryCode.Ie,
-        //       scope: {
-        //         type: ScopeType.Custom,
-        //         value: 'MY ASSETS',
-        //       },
-        //     },
-        //     // trustedClaimIssuers: [
-        //     //   { identity: signingIdentity, trustedFor: null },
-        //     // ],
-        //     target: ConditionTarget.Both,
-        //   },
-        // ],
-        [
-          {
-            type: ConditionType.IsAnyOf,
-            claims: [
-              {
-                type: ClaimType.Affiliate,
-                scope: {
-                  type: ScopeType.Ticker,
-                  value: ASSET,
-                },
-              },
-              {
-                type: ClaimType.Exempted,
-                scope: {
-                  type: ScopeType.Ticker,
-                  value: ASSET,
-                },
-              },
-              {
-                type: ClaimType.CustomerDueDiligence,
-                id: '0x',
-              },
-            ],
-            // trustedClaimIssuers: [
-            //   { identity: signingIdentity, trustedFor: null },
-            // ],
-            target: ConditionTarget.Receiver,
-          },
-          {
-            type: ConditionType.IsNoneOf,
-            claims: [
-              {
-                type: ClaimType.Affiliate,
-                scope: {
-                  type: ScopeType.Ticker,
-                  value: ASSET,
-                },
-              },
-              {
-                type: ClaimType.Exempted,
-                scope: {
-                  type: ScopeType.Custom,
-                  value: 'MY ASSETS',
-                },
-              },
-              {
-                type: ClaimType.CustomerDueDiligence,
-                id: '0x',
-              },
-            ],
-            // trustedClaimIssuers: [
-            //   { identity: signingIdentity, trustedFor: null },
-            // ],
-            target: ConditionTarget.Receiver,
-          },
-        ],
-        // [
-        //   {
-        //     type: ConditionType.IsExternalAgent,
-        //     target: ConditionTarget.Receiver,
-        //   },
-        // ],
-        // [
-        //   {
-        //     type: ConditionType.IsIdentity,
-        //     identity: signingIdentity,
-        //     target: ConditionTarget.Sender,
-        //   },
-        // ],
-      ],
+      requirements: rules,
     });
 
     const txBatch = await sdk.createTransactionBatch({
-      transactions: [
-        // addTrustedClaimIssuerTx,
-        addRuleTx,
-      ],
+      transactions: [addTrustedClaimIssuerTx, addRuleTx],
     });
 
     const unsubTxBatch = txBatch.onStatusChange(handleTxStatusChange);
@@ -234,7 +77,7 @@ const main = async () => {
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };

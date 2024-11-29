@@ -12,7 +12,7 @@ const main = async () => {
     // Connect to the Polymesh blockchain using the SDK
     const sdk = await Polymesh.connect({
       nodeUrl,
-      // polkadot: { noInitWarn: true },
+      polkadot: { noInitWarn: true },
     });
 
     // Retrieve network properties to confirm a successful connection
@@ -91,7 +91,7 @@ const main = async () => {
 
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };

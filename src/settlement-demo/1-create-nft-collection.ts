@@ -2,196 +2,48 @@ import { LocalSigningManager } from '@polymeshassociation/local-signing-manager'
 import { BigNumber, Polymesh } from '@polymeshassociation/polymesh-sdk';
 import {
   Asset,
-  AssetDocument,
-  CollectionKeyInput,
   GenericPolymeshTransaction,
-  KnownNftType,
   MetadataEntry,
-  MetadataLockStatus,
   MetadataType,
-  RegisterMetadataParams,
-  SecurityIdentifier,
-  SecurityIdentifierType,
-  SetMetadataParams,
 } from '@polymeshassociation/polymesh-sdk/types';
+import fs from 'fs';
 import { handleTxStatusChange } from '../helpers';
+import {
+  TICKER,
+  NFT_TYPE,
+  COLLECTION_NAME,
+  COLLECTION_KEYS,
+  INCLUDE_TOKEN_URI_AS_COLLECTION_KEY,
+  INCLUDE_IMAGE_URI_AS_COLLECTION_KEY,
+  BASE_IMAGE_URI,
+  BASE_TOKEN_URI,
+  DOCUMENTS,
+  COLLECTION_METADATA,
+  SECURITY_IDENTIFIERS,
+  CURRENT_FUNDING_ROUND,
+} from './scriptInputs/nftInputs';
+import {
+  ISSUER_MNEMONIC,
+  NODE_URL,
+  ASSET_IDS_PATH,
+  NFT_COLLECTION_ASSET_KEY,
+} from './scriptInputs/common';
 
-// Define the mnemonic and node URL
-const MNEMONIC = '//Alice';
-const nodeUrl = 'ws://localhost:9944/';
-
-// Define NFT input parameters
-const ticker: string = 'DC-NOTE-2024'; // Max 12 characters
-const nftType: KnownNftType | BigNumber = KnownNftType.FixedIncome;
-const collectionName: string | undefined =
-  'DemoCorp Promissory Note NFT Collection';
-
-// Define Collection keys (required properties for all NFTs in the collection)
-const collectionKeys: CollectionKeyInput[] = [
-  {
-    name: 'Note ID',
-    spec: {
-      typeDef: 'Text - not SCALE encoded',
-      description: 'A unique identifier for the promissory note',
-    },
-    type: MetadataType.Local,
-  },
-  {
-    name: 'Name',
-    spec: {
-      typeDef: 'Text - not SCALE encoded',
-      description: 'The name of the promissory note',
-    },
-    type: MetadataType.Local,
-  },
-  {
-    name: 'Principal Amount',
-    spec: {
-      typeDef: 'Text - not SCALE encoded',
-      description: 'The face value or principal amount of the promissory note',
-    },
-    type: MetadataType.Local,
-  },
-  {
-    name: 'Interest Rate',
-    spec: {
-      typeDef: 'Text - not SCALE encoded',
-      description:
-        'The interest rate applicable to the promissory note, if any',
-    },
-    type: MetadataType.Local,
-  },
-  {
-    name: 'Maturity Date',
-    spec: {
-      typeDef: 'Text - not SCALE encoded',
-      description:
-        'The date on which the promissory note matures and the principal is repaid',
-    },
-    type: MetadataType.Local,
-  },
-  {
-    name: 'Issue Date',
-    spec: {
-      typeDef: 'Text - not SCALE encoded',
-      description: 'The date on which the promissory note was issued',
-    },
-    type: MetadataType.Local,
-  },
-];
-
-// Optionally define if global metadata keys `tokenUri` or `ImageUri` should be included in the collection keys
-const includeTokenUriAsCollectionKey: boolean = false;
-const includeImageUriAsCollectionKey: boolean = true;
-
-// Optionally define base URIs
-const baseImageUri: SetMetadataParams | undefined = undefined;
-const baseTokenUri: SetMetadataParams | undefined = undefined;
-
-// Optionally attach external document references
-const documents: AssetDocument[] = [
-  {
-    name: 'Prospectus',
-    uri: 'https://democorp.com/documents/prospectus.pdf',
-    type: 'Detailed information about the note offering, including financial projections, risk factors, and use of proceeds.',
-    contentHash: '0xabcdef00000000000000001234567891',
-  },
-  {
-    name: 'Terms and Conditions',
-    uri: 'https://democorp.com/documents/terms-and-conditions.pdf',
-    type: 'The legal terms governing the notes, outlining the rights and obligations of the issuer and noteholders.',
-    contentHash: '0xabcdef00000000000000001234567892',
-  },
-  {
-    name: "Issuer's Annual Report",
-    uri: 'https://democorp.com/documents/annual-report-2023.pdf',
-    type: "The latest annual report of DemoCorp, containing financial statements, business overview, and management's discussion and analysis.",
-    contentHash: '0xabcdef00000000000000001234567893',
-  },
-  {
-    name: 'Rating Agency Report',
-    uri: 'https://democorp.com/documents/rating-agency-report.pdf',
-    type: 'A report from a reputable rating agency providing analysis and the credit rating of the notes.',
-    contentHash: '0xabcdef00000000000000001234567894',
-  },
-];
-
-// Optionally attach additional collection metadata
-const collectionMetadata: RegisterMetadataParams[] | undefined = [
-  {
-    name: 'Description',
-    specs: {
-      description: 'Description of the NFT collection',
-      typeDef: 'Text - not SCALE encoded',
-      url: undefined,
-    },
-    value:
-      "A collection of NFTs representing DemoCorp's corporate promissory notes, each with unique terms and conditions.",
-    details: { lockStatus: MetadataLockStatus.Locked, expiry: null },
-  },
-  {
-    name: 'Rating',
-    specs: {
-      description: 'Credit rating of the note collection',
-      typeDef: 'Text - not SCALE encoded',
-      url: undefined,
-    },
-    value: 'AA',
-    details: { lockStatus: MetadataLockStatus.Locked, expiry: null },
-  },
-  {
-    name: 'Issuer',
-    specs: {
-      description: 'Issuer of the notes',
-      typeDef: 'Text - not SCALE encoded',
-      url: undefined,
-    },
-    value: 'DemoCorp',
-    details: { lockStatus: MetadataLockStatus.Locked, expiry: null },
-  },
-  {
-    name: 'Website',
-    specs: {
-      description: 'Website of the issuer',
-      typeDef: 'Text - not SCALE encoded',
-      url: undefined,
-    },
-    value: 'https://democorp.com/notes',
-    details: { lockStatus: MetadataLockStatus.Locked, expiry: null },
-  },
-  {
-    name: 'Image',
-    specs: {
-      description: 'URL to a representative image for the collection',
-      typeDef: 'Text - not SCALE encoded',
-      url: undefined,
-    },
-    value: 'https://democorp.com/images/note-collection.png',
-    details: { lockStatus: MetadataLockStatus.Locked, expiry: null },
-  },
-];
-
-// Optionally specify security identifiers
-const securityIdentifiers: SecurityIdentifier[] | undefined = [
-  { type: SecurityIdentifierType.Cusip, value: '987654324' },
-  { type: SecurityIdentifierType.Isin, value: 'US9876543219' },
-];
-
-// Optionally specify a current funding round
-const currentFundingRound: string | undefined = 'Current Round';
+// Load the asset IDs dynamically
+const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
 
 const main = async () => {
   try {
     // Create a local signing manager with one account
     const signingManager = await LocalSigningManager.create({
-      accounts: [{ mnemonic: MNEMONIC }],
+      accounts: [{ mnemonic: ISSUER_MNEMONIC }],
     });
 
     console.log('Connecting to Polymesh');
 
     // Connect to the Polymesh blockchain using the SDK
     const sdk = await Polymesh.connect({
-      nodeUrl,
+      nodeUrl: NODE_URL,
       signingManager,
       polkadot: { noInitWarn: true },
     });
@@ -203,10 +55,10 @@ const main = async () => {
     // Get global metadata keys
     const globalKeyIds: Record<string, BigNumber> = {};
     if (
-      includeTokenUriAsCollectionKey ||
-      includeImageUriAsCollectionKey ||
-      baseImageUri ||
-      baseTokenUri
+      INCLUDE_TOKEN_URI_AS_COLLECTION_KEY ||
+      INCLUDE_IMAGE_URI_AS_COLLECTION_KEY ||
+      BASE_IMAGE_URI ||
+      BASE_TOKEN_URI
     ) {
       const globalMetadataKeys = await sdk.assets.getGlobalMetadataKeys();
       globalMetadataKeys.forEach(({ name, id }) => {
@@ -215,28 +67,28 @@ const main = async () => {
     }
 
     // Add global metadata keys to collection keys if required
-    if (includeTokenUriAsCollectionKey) {
-      collectionKeys.push({
+    if (INCLUDE_TOKEN_URI_AS_COLLECTION_KEY) {
+      COLLECTION_KEYS.push({
         id: globalKeyIds.tokenUri,
         type: MetadataType.Global,
       });
     }
-    if (includeImageUriAsCollectionKey) {
-      collectionKeys.push({
+    if (INCLUDE_IMAGE_URI_AS_COLLECTION_KEY) {
+      COLLECTION_KEYS.push({
         id: globalKeyIds.imageUri,
         type: MetadataType.Global,
       });
     }
 
     // Create the NFT collection
-    console.log(`\nCreating NFT Collection: ${ticker}`);
+    console.log(`\nCreating NFT Collection:`);
     const createNftTx = await sdk.assets.createNftCollection({
-      collectionKeys,
-      documents,
-      name: collectionName,
-      nftType,
-      securityIdentifiers,
-      ticker,
+      collectionKeys: COLLECTION_KEYS,
+      documents: DOCUMENTS,
+      name: COLLECTION_NAME,
+      nftType: NFT_TYPE,
+      securityIdentifiers: SECURITY_IDENTIFIERS,
+      ticker: TICKER,
     });
 
     // Subscribe to transaction status changes
@@ -244,6 +96,13 @@ const main = async () => {
 
     // Execute the collection creation transaction
     const nftCollection = await createNftTx.run();
+    const assetId = nftCollection.id;
+
+    console.log(`\nCollection created with asset ID: ${assetId}`);
+
+    // Save the assetId to the consolidated JSON file for use by subsequent scripts
+    assetIds[NFT_COLLECTION_ASSET_KEY] = assetId;
+    fs.writeFileSync(ASSET_IDS_PATH, JSON.stringify(assetIds, null, 2));
 
     // Unsubscribe from transaction status changes
     unsubCreateNft();
@@ -254,35 +113,38 @@ const main = async () => {
       | GenericPolymeshTransaction<Asset, Asset>
     > = [];
 
-    if (currentFundingRound) {
+    // Modify NFT collection if CURRENT_FUNDING_ROUND is provided
+    if (CURRENT_FUNDING_ROUND) {
       const modifyNftTx = await nftCollection.modify({
-        fundingRound: currentFundingRound,
+        fundingRound: CURRENT_FUNDING_ROUND,
       });
       batchCalls.push(modifyNftTx);
     }
 
-    if (baseTokenUri) {
+    // Set the BASE_TOKEN_URI if provided
+    if (BASE_TOKEN_URI) {
       const baseTokenUriMetadataEntry = await nftCollection.metadata.getOne({
         id: globalKeyIds.baseTokenUri,
         type: MetadataType.Global,
       });
       const setBaseTokenUriTx =
-        await baseTokenUriMetadataEntry.set(baseTokenUri);
+        await baseTokenUriMetadataEntry.set(BASE_TOKEN_URI);
       batchCalls.push(setBaseTokenUriTx);
     }
 
-    if (baseImageUri) {
+    // Set the BASE_IMAGE_URI if provided
+    if (BASE_IMAGE_URI) {
       const baseImageUriMetadataEntry = await nftCollection.metadata.getOne({
         id: globalKeyIds.baseImageUri,
         type: MetadataType.Global,
       });
       const setBaseImageUriTx =
-        await baseImageUriMetadataEntry.set(baseImageUri);
+        await baseImageUriMetadataEntry.set(BASE_IMAGE_URI);
       batchCalls.push(setBaseImageUriTx);
     }
 
-    // Create register metadata transactions and add to the batchCalls array.
-    const registerMetadataPromises = collectionMetadata.map(
+    // Create register metadata transactions and add to the batchCalls array
+    const registerMetadataPromises = COLLECTION_METADATA.map(
       (metadataParams) => {
         return nftCollection.metadata.register(metadataParams);
       },
@@ -293,7 +155,7 @@ const main = async () => {
     });
 
     // Execute batch calls for metadata and other actions
-    if (batchCalls.length) {
+    if (batchCalls.length > 0) {
       const batchTransaction = await sdk.createTransactionBatch({
         transactions: batchCalls,
       });
@@ -315,7 +177,7 @@ const main = async () => {
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     process.exit(1);
   }
 };
