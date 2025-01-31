@@ -12,11 +12,11 @@ import { parse } from 'csv-parse';
 import { handleTxStatusChange } from '../helpers';
 import { CSV_FILE_PATH, MAX_BATCH_SIZE } from './scriptInputs/nftInputs';
 import {
-  NODE_URL,
   ISSUER_MNEMONIC,
   ASSET_IDS_PATH,
   NFT_COLLECTION_ASSET_KEY,
 } from './scriptInputs/common';
+import { getSdkInstance } from './connect';
 
 // Load the asset IDs dynamically
 const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
@@ -108,22 +108,6 @@ function prepareNftMetadata(
   });
 }
 
-async function connectToPolymesh(): Promise<Polymesh> {
-  // Create a local signing manager with one account
-  const signingManager = await LocalSigningManager.create({
-    accounts: [{ mnemonic: ISSUER_MNEMONIC }],
-  });
-
-  // Connect to the Polymesh blockchain using the SDK
-  const sdk = await Polymesh.connect({
-    nodeUrl: NODE_URL,
-    signingManager,
-    polkadot: { noInitWarn: true },
-  });
-
-  return sdk;
-}
-
 async function getSigningAccountNonce(sdk: Polymesh): Promise<BigNumber> {
   // Get signing account nonce
   const signingAccount = sdk.accountManagement.getSigningAccount();
@@ -184,17 +168,18 @@ async function issueNftsInBatches(
 
 const main = async () => {
   try {
+    console.log('Starting issue-nfts script...');
     const assetId = assetIds[NFT_COLLECTION_ASSET_KEY];
 
     console.log(`Reading NFT metadata from ${CSV_FILE_PATH}`);
     const nftsToIssue: NftToIssue[] = await parseCsv(CSV_FILE_PATH);
 
-    console.log('Connecting to Polymesh');
-    const sdk = await connectToPolymesh();
-
-    // Retrieve network properties
-    const networkProps = await sdk.network.getNetworkProperties();
-    console.log('Successfully connected to', networkProps.name);
+    // Create a local signing manager with one account
+    const signingManager = await LocalSigningManager.create({
+      accounts: [{ mnemonic: ISSUER_MNEMONIC }],
+    });
+    const sdk = await getSdkInstance();
+    await sdk.setSigningManager(signingManager);
 
     const nftCollection = await sdk.assets.getNftCollection({
       assetId,
@@ -209,8 +194,7 @@ const main = async () => {
 
     await issueNftsInBatches(sdk, nftCollection, preparedMetadata);
 
-    // Disconnect from Polymesh
-    console.log('\nDisconnecting');
+    console.log('Issue-nfts script completed successfully.');
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {

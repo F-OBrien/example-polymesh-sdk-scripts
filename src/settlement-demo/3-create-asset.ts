@@ -13,6 +13,7 @@ import {
 import { ASSET_IDS_PATH, FUNGIBLE_ASSET_KEY } from './scriptInputs/common';
 
 const main = async () => {
+  console.log('Starting create-asset script...');
   await createAsset({
     assetIdsPath: ASSET_IDS_PATH,
     ticker: TICKER,
@@ -26,6 +27,7 @@ const main = async () => {
     fundingRound: FUNDING_ROUND,
     assetKey: FUNGIBLE_ASSET_KEY,
   });
+  console.log('Create-asset script completed successfully.');
 };
 
 main();

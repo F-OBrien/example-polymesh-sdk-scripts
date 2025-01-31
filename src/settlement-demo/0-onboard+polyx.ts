@@ -4,7 +4,6 @@ import { GenericPolymeshTransaction } from '@polymeshassociation/polymesh-sdk/ty
 import { Identity } from '@polymeshassociation/polymesh-sdk/internal';
 import { handleTxStatusChange } from '../helpers';
 import {
-  NODE_URL,
   CDD_PROVIDER_MNEMONIC,
   USER1_MNEMONIC,
   USER2_MNEMONIC,
@@ -12,6 +11,7 @@ import {
   POLYX_TOKENS_TO_TRANSFER,
   ISSUER_MNEMONIC,
 } from './scriptInputs/common';
+import { getSdkInstance } from './connect';
 
 // Helper function to check if an identity exists for a given address
 const doesIdentityExist = async (
@@ -85,13 +85,8 @@ const main = async () => {
       ],
     });
 
-    console.log('Connecting to Polymesh...');
-    const sdk = await Polymesh.connect({
-      nodeUrl: NODE_URL,
-      signingManager,
-      polkadot: { noInitWarn: true },
-    });
-    console.log('Connected to Polymesh 🎉');
+    const sdk = await getSdkInstance();
+    await sdk.setSigningManager(signingManager);
     const signingAccountKeys = await signingManager.getAccounts();
 
     const userPublicKeys = signingAccountKeys.concat(KEYS_TO_ONBOARD);
@@ -129,8 +124,9 @@ const main = async () => {
       unsubBatch();
     }
 
-    console.log('All transactions completed successfully!');
+    console.log('All onboarding transactions completed successfully!');
     await sdk.disconnect();
+    process.exit(0);
   } catch (error) {
     console.error(error);
     process.exit(1);

@@ -1,5 +1,5 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
-import { BigNumber, Polymesh } from '@polymeshassociation/polymesh-sdk';
+import { BigNumber } from '@polymeshassociation/polymesh-sdk';
 import {
   Asset,
   AssetDocument,
@@ -10,7 +10,8 @@ import {
 } from '@polymeshassociation/polymesh-sdk/types';
 import fs from 'fs';
 import { handleTxStatusChange } from '../helpers';
-import { ISSUER_MNEMONIC, NODE_URL } from './scriptInputs/common';
+import { ISSUER_MNEMONIC } from './scriptInputs/common';
+import { getSdkInstance } from './connect';
 
 export const createAsset = async (assetConstants: {
   assetIdsPath: string;
@@ -45,18 +46,8 @@ export const createAsset = async (assetConstants: {
       accounts: [{ mnemonic: ISSUER_MNEMONIC }],
     });
 
-    console.log('Connecting to Polymesh');
-
-    // Connect to the Polymesh blockchain using the SDK
-    const sdk = await Polymesh.connect({
-      nodeUrl: NODE_URL,
-      signingManager,
-      polkadot: { noInitWarn: true },
-    });
-
-    // Retrieve network properties
-    const networkProps = await sdk.network.getNetworkProperties();
-    console.log('Successfully connected to', networkProps.name, '🎉');
+    const sdk = await getSdkInstance();
+    await sdk.setSigningManager(signingManager);
 
     // Create the fungible asset
     console.log(`\nCreating Fungible Asset:`);
@@ -125,8 +116,6 @@ export const createAsset = async (assetConstants: {
       unsubAddMetadata();
     }
 
-    // Disconnect from Polymesh
-    console.log('\nDisconnecting');
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {

@@ -34,30 +34,35 @@ export const DOCUMENTS: AssetDocument[] = [
     uri: 'https://democorp.com/documents/prospectus.pdf',
     type: 'Detailed information about the equity offering, including financial projections, risk factors, and use of proceeds.',
     contentHash: '0xabcdef00000000000000001234567891',
+    filedAt: new Date('2025-01-01'),
   },
   {
     name: 'Terms and Conditions',
     uri: 'https://democorp.com/documents/terms-and-conditions.pdf',
     type: 'The legal terms governing the equity, outlining the rights and obligations of the shareholders.',
     contentHash: '0xabcdef00000000000000001234567892',
+    filedAt: new Date('2025-01-01'),
   },
   {
     name: "Issuer's Annual Report",
     uri: 'https://democorp.com/documents/annual-report-2023.pdf',
     type: "The latest annual report of DemoCorp, containing financial statements, business overview, and management's discussion and analysis.",
     contentHash: '0xabcdef00000000000000001234567893',
+    filedAt: new Date('2025-01-01'),
   },
   {
     name: 'Articles of Incorporation',
     uri: 'https://democorp.com/documents/articles-of-incorporation.pdf',
     type: 'The articles of incorporation of DemoCorp, outlining the establishment of the company and its governance structure.',
     contentHash: '0xabcdef00000000000000001234567894',
+    filedAt: new Date('2025-01-01'),
   },
   {
     name: 'Corporate Bylaws',
     uri: 'https://democorp.com/documents/corporate-bylaws.pdf',
     type: 'The bylaws of DemoCorp, detailing the internal rules governing the corporation.',
     contentHash: '0xabcdef00000000000000001234567895',
+    filedAt: new Date('2025-01-01'),
   },
 ];
 

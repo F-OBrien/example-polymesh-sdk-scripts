@@ -1,5 +1,5 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
-import { BigNumber, Polymesh } from '@polymeshassociation/polymesh-sdk';
+import { BigNumber } from '@polymeshassociation/polymesh-sdk';
 import fs from 'fs';
 import { handleTxStatusChange } from '../helpers';
 import {
@@ -7,7 +7,6 @@ import {
   AMOUNT_STABLECOIN_1,
   AMOUNT_STABLECOIN_2,
   NFT_ID,
-  NODE_URL,
   ISSUER_MNEMONIC,
   USER1_MNEMONIC,
   USER2_MNEMONIC,
@@ -16,6 +15,7 @@ import {
   STABLE_COIN_ASSET_KEY,
   FUNGIBLE_ASSET_KEY,
 } from './scriptInputs/common';
+import { getSdkInstance } from './connect';
 
 // Load the asset IDs dynamically
 const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
@@ -23,6 +23,7 @@ const assetIds = JSON.parse(fs.readFileSync(ASSET_IDS_PATH, 'utf8'));
 // Define the mnemonic and node URL
 const main = async () => {
   try {
+    console.log('Starting fund-demo-identities script...');
     // Create a local signing manager with one account
     const signingManager = await LocalSigningManager.create({
       accounts: [
@@ -32,18 +33,9 @@ const main = async () => {
       ],
     });
 
-    console.log('Connecting to Polymesh');
+    const sdk = await getSdkInstance();
+    await sdk.setSigningManager(signingManager);
 
-    // Connect to the Polymesh blockchain using the SDK
-    const sdk = await Polymesh.connect({
-      nodeUrl: NODE_URL,
-      signingManager,
-      polkadot: { noInitWarn: true },
-    });
-
-    // Retrieve network properties
-    const networkProps = await sdk.network.getNetworkProperties();
-    console.log('Successfully connected to', networkProps.name, '🎉');
     const keys = await sdk.accountManagement.getSigningAccounts();
 
     const signingIdentity = await sdk.getSigningIdentity();
@@ -125,8 +117,7 @@ const main = async () => {
 
     unsubAffirmTx2();
 
-    // Disconnect from Polymesh
-    console.log('\nDisconnecting');
+    console.log('Fund-demo-identities script completed successfully.');
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {

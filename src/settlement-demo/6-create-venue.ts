@@ -1,31 +1,18 @@
 import { LocalSigningManager } from '@polymeshassociation/local-signing-manager';
-import { Polymesh } from '@polymeshassociation/polymesh-sdk';
 import { handleTxStatusChange } from '../helpers';
-import {
-  NODE_URL,
-  ISSUER_MNEMONIC,
-  VENUE_DETAILS,
-} from './scriptInputs/common';
+import { ISSUER_MNEMONIC, VENUE_DETAILS } from './scriptInputs/common';
+import { getSdkInstance } from './connect';
 
 const main = async () => {
   try {
+    console.log('Starting create-venue script...');
     // Create a local signing manager with one account
     const signingManager = await LocalSigningManager.create({
       accounts: [{ mnemonic: ISSUER_MNEMONIC }],
     });
 
-    console.log('Connecting to Polymesh');
-
-    // Connect to the Polymesh blockchain using the SDK
-    const sdk = await Polymesh.connect({
-      nodeUrl: NODE_URL,
-      signingManager,
-      polkadot: { noInitWarn: true },
-    });
-
-    // Retrieve network properties
-    const networkProps = await sdk.network.getNetworkProperties();
-    console.log('Successfully connected to', networkProps.name, '🎉');
+    const sdk = await getSdkInstance();
+    await sdk.setSigningManager(signingManager);
 
     // Create the venue
     console.log(`\nCreating Venue:`);
@@ -41,8 +28,7 @@ const main = async () => {
     // Unsubscribe from transaction status changes
     unsubCreateVenue();
 
-    // Disconnect from Polymesh
-    console.log('\nDisconnecting');
+    console.log('Create-venue script completed successfully.');
     await sdk.disconnect();
     process.exit(0);
   } catch (error) {

@@ -13,6 +13,7 @@ import {
 } from './scriptInputs/stablecoinInputs';
 
 const main = async () => {
+  console.log('Starting create-stablecoin script...');
   await createAsset({
     assetIdsPath: ASSET_IDS_PATH,
     ticker: TICKER,
@@ -26,6 +27,7 @@ const main = async () => {
     fundingRound: FUNDING_ROUND,
     assetKey: STABLE_COIN_ASSET_KEY,
   });
+  console.log('Create-stablecoin script completed successfully.');
 };
 
 main();

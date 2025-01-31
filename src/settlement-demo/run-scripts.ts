@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import path from 'path';
+import { disconnectSdk } from './connect';
 
 // List of scripts to run sequentially
 const scriptsToRun = [
@@ -19,6 +20,7 @@ const scriptsToRun = [
 const runScriptsSequentially = (scripts: string[], index = 0): void => {
   if (index >= scripts.length) {
     console.log('All scripts executed successfully.');
+    disconnectSdk().catch(console.error);
     return;
   }
 

@@ -7,7 +7,7 @@ import {
 // Constants common to multiple scripts
 
 // URL of the Polymesh node to connect to
-export const NODE_URL = 'wss://rpc.polymesh.dev'; // 'ws://localhost:9944'; // 'wss://rpc.polymesh.live';
+export const NODE_URL = 'ws://localhost:9944'; // 'wss://rpc.polymesh.dev'; // 'wss://rpc.polymesh.live';
 
 export const DEV_ACCOUNT_MNEMONIC =
   'bottom drive obey lake curtain smoke basket hold race lonely fit walk';
